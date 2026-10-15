@@ -1,16 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
 .venv/
-_pycache_/
-.pytest_cache/
-deploy.env
-*.swp
-__pycache__/
-*.pyc
-__pycache__/
-*.pyc
-__pycache__/
-*.pyc
-__pycache__/
-*.pyc
-.pytest_cache/
 venv/
+
+# Secrets / local config
 .env
+deploy.env
+
+# Editors
+*.swp
