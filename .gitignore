@@ -3,3 +3,5 @@ _pycache_/
 .pytest_cache/
 deploy.env
 *.swp
+__pycache__/
+*.pyc
