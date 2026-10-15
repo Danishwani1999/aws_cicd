@@ -1,23 +1,19 @@
-# Base image
-FROM python:3.8
+FROM python:3.12-slim
 
-# Set the working directory inside the container
-WORKDIR /app
+WORKDIR /srv
 
-# Copy the requirements file
-COPY requirements.txt .
+COPY app/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install the project dependencies
-RUN pip install -r requirements.txt
+COPY app/app.py .
 
-# Copy the application code into the container
-COPY . .
+# don't run the app as root
+RUN useradd --create-home appuser
+USER appuser
 
-# Expose the port the Flask application will be listening on
 EXPOSE 5000
 
-# Set environment variables, if necessary
-# ENV MY_ENV_VAR=value
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
 
-# Run the Flask application
-CMD ["python", "app.py"]
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]
