@@ -1,31 +1,39 @@
 version: 0.2
 
 env:
-  parameter-store:
-    DOCKER_REGISTRY_USERNAME: /myapp/docker-credentials/username
-    DOCKER_REGISTRY_PASSWORD: /myapp/docker-credentials/password
-    DOCKER_REGISTRY_URL: /myapp/docker-registry/url
+  variables:
+    IMAGE_REPO_NAME: aws-cicd-demo
+
 phases:
   install:
     runtime-versions:
-      python: 3.11
+      python: 3.12
+
   pre_build:
     commands:
-      - echo "Installing dependencies..."
-      - pip install -r day-13/simple-python-app/requirements.txt
+      - pip install -r app/requirements.txt pytest
+      - cd app && pytest -q && cd ..
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - REGISTRY=$ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - aws ecr get-login-password | docker login --username AWS --password-stdin $REGISTRY
+      - TAG=$(echo "${CODEBUILD_RESOLVED_SOURCE_VERSION:-}" | cut -c1-7)
+      - TAG=${TAG:-build$CODEBUILD_BUILD_NUMBER}
+
   build:
     commands:
-      - echo "Running tests..."
-      - cd day-13/simple-python-app/
-      - echo "Building Docker image..."
-      - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
-      - docker build -t "$DOCKER_REGISTRY_URL/$DOCKER_REGISTRY_USERNAME/simple-python-flask-app:latest" .
-      - docker push "$DOCKER_REGISTRY_URL/$DOCKER_REGISTRY_USERNAME/simple-python-flask-app:latest"
+      - docker build -t $REGISTRY/$IMAGE_REPO_NAME:$TAG .
+      - docker tag $REGISTRY/$IMAGE_REPO_NAME:$TAG $REGISTRY/$IMAGE_REPO_NAME:latest
+
   post_build:
     commands:
-      - echo "Build completed successfully!"
+      - docker push $REGISTRY/$IMAGE_REPO_NAME:$TAG
+      - docker push $REGISTRY/$IMAGE_REPO_NAME:latest
+      - echo "IMAGE_URI=$REGISTRY/$IMAGE_REPO_NAME:$TAG" > deploy.env
+      - echo "AWS_REGION=$AWS_DEFAULT_REGION" >> deploy.env
+
 artifacts:
   files:
-    - '**/*'
-  base-directory: ../simple-python-app
+    - appspec.yml
+    - deploy.env
+    - scripts/**/*
 
